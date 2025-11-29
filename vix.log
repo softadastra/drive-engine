@@ -1,0 +1,5 @@
+[2025-11-29 16:21:47.519] [vixLogger] [info] [NewCommand] ✅ Project 'os' created at /home/softadastra/softadastra/os/os
+[2025-11-29 16:21:47.519] [vixLogger] [info] [NewCommand] Next steps:
+  cd "/home/softadastra/softadastra/os/os"
+  vix build
+  vix run
