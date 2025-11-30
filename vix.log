@@ -1,5 +1,12 @@
-[2025-11-29 16:21:47.519] [vixLogger] [info] [NewCommand] ✅ Project 'os' created at /home/softadastra/softadastra/os/os
-[2025-11-29 16:21:47.519] [vixLogger] [info] [NewCommand] Next steps:
-  cd "/home/softadastra/softadastra/os/os"
-  vix build
-  vix run
+[2025-11-29 17:53:56.405] [vixLogger] [info] [RunCommand] Configure (preset): cd /home/softadastra/softadastra/os && cmake --preset dev-ninja
+[2025-11-30 19:05:03.612] [vixLogger] [info] [RunCommand] Configure (preset): cd /home/softadastra/softadastra/os && cmake --preset dev-ninja
+[2025-11-30 19:08:15.960] [vixLogger] [info] [BuildCommand] Configure (preset): cd /home/softadastra/softadastra/os && cmake --preset dev-ninja
+[2025-11-30 19:08:16.197] [vixLogger] [info] [BuildCommand] Build preset sélectionné: dev-ninja
+[2025-11-30 19:08:16.197] [vixLogger] [info] [BuildCommand] Build (preset): cd /home/softadastra/softadastra/os && cmake --build --preset dev-ninja --config Release
+[2025-11-30 19:08:31.320] [vixLogger] [error] [BuildCommand] Erreur compilation (build preset 'dev-ninja', code 256).
+[2025-11-30 19:11:30.572] [vixLogger] [info] [RunCommand] Configure (preset): cd /home/softadastra/softadastra/os && cmake --preset dev-ninja
+[2025-11-30 20:26:59.795] [vixLogger] [info] [RunCommand] Configure (preset): cd /home/softadastra/softadastra/os && cmake --preset dev-ninja
+[2025-11-30 20:29:51.902] [vixLogger] [info] [RunCommand] Configure (preset): cd /home/softadastra/softadastra/os && cmake --preset dev-ninja
+[2025-11-30 20:30:39.912] [vixLogger] [info] [RunCommand] Configure (preset): cd /home/softadastra/softadastra/os && cmake --preset dev-ninja
+[2025-11-30 20:31:24.500] [vixLogger] [info] [RunCommand] Configure (preset): cd /home/softadastra/softadastra/os && cmake --preset dev-ninja
+[2025-11-30 20:36:32.245] [vixLogger] [info] [RunCommand] Configure (preset): cd /home/softadastra/softadastra/os && cmake --preset dev-ninja

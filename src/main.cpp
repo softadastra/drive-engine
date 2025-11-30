@@ -1,14 +1,12 @@
 #include <vix.hpp>
+#include "handlers.hpp"
 using namespace vix;
 
 int main()
 {
     App app;
 
-    // GET /
-    app.get("/", [](auto&, auto& res) {
-        res.json({"message", "Hello world"});
-    });
+    register_routes(app);
 
     app.run(8080);
 }
