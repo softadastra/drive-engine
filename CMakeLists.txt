@@ -75,7 +75,11 @@ else()
 endif()
 
 # ===== App target =====
-add_executable(os src/main.cpp)
+set(SRC_FILES
+  src/main.cpp
+  src/handlers.cpp   
+)
+add_executable(os ${SRC_FILES})
 
 target_link_libraries(os PRIVATE
   ${VIX_MAIN_TARGET}
