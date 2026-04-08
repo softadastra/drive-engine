@@ -1,0 +1,7 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(drive_watcher REQUIRED)
+find_dependency(drive_adapter REQUIRED)
+
+include("${CMAKE_CURRENT_LIST_DIR}/driveEngineTargets.cmake")

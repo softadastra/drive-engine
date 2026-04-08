@@ -1,122 +1,145 @@
 cmake_minimum_required(VERSION 3.20)
-project(os LANGUAGES CXX)
 
-# ===== C++ standard =====
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+    project(drive_engine
+        VERSION 0.1.0
+        DESCRIPTION "Drive orchestration engine"
+        LANGUAGES CXX
+    )
+endif()
 
-option(VIX_ENABLE_SANITIZERS "Enable ASan/UBSan (dev only)" OFF)
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
-# ===== Prefixes (adjust if your install lives elsewhere) =====
-list(APPEND CMAKE_PREFIX_PATH 
-  "/usr/local"
-  "/usr/local/lib/cmake"
-  "/usr/local/lib/cmake/vix"  # new lowercase package dir
-  "/usr/local/lib/cmake/Vix"  # legacy package dir (exports fmt::fmt)
+# ========================
+# Options
+# ========================
+option(DRIVE_ENGINE_BUILD_TESTS "Build drive-engine tests" OFF)
+option(DRIVE_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
+
+# ========================
+# Dependencies
+# ========================
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.vix/vix_deps.cmake")
+    include("${CMAKE_CURRENT_SOURCE_DIR}/.vix/vix_deps.cmake")
+endif()
+
+# ========================
+# Sources
+# ========================
+file(GLOB_RECURSE DRIVE_ENGINE_SOURCES
+    CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 
-# ❗ Disable ORM completely in generated apps (core-only)
-set(CMAKE_DISABLE_FIND_PACKAGE_VixOrm ON)
+# ========================
+# Library
+# ========================
+add_library(drive_engine STATIC ${DRIVE_ENGINE_SOURCES})
+add_library(drive::engine ALIAS drive_engine)
 
-# ===== System deps first =====
-find_package(Threads REQUIRED)
-find_package(OpenSSL QUIET)
-find_package(Boost REQUIRED COMPONENTS system thread filesystem)
+target_compile_features(drive_engine PUBLIC cxx_std_20)
 
-# Optional: create a small shim if Boost::filesystem isn't exported
-if (NOT TARGET Boost::filesystem)
-  if (Boost_FOUND AND Boost_FILESYSTEM_LIBRARY)
-    add_library(Boost::filesystem UNKNOWN IMPORTED)
-    set_target_properties(Boost::filesystem PROPERTIES
-      IMPORTED_LOCATION "${Boost_FILESYSTEM_LIBRARY}"
-      INTERFACE_INCLUDE_DIRECTORIES "${Boost_INCLUDE_DIRS}")
-    message(STATUS "Shim: Using Boost::filesystem from ${Boost_FILESYSTEM_LIBRARY}")
-  else()
-    message(FATAL_ERROR "Boost::filesystem not found and no library path provided.")
-  endif()
-endif()
+target_include_directories(drive_engine
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 
-# ===== fmt shim (must be BEFORE find_package(Vix/vix)) =====
-# Some legacy Vix packages export vix::utils with fmt::fmt in interface.
-# To avoid configure errors, ensure fmt::fmt exists (alias header-only or dummy).
-find_package(fmt QUIET)
-if (TARGET fmt::fmt-header-only AND NOT TARGET fmt::fmt)
-  add_library(fmt::fmt ALIAS fmt::fmt-header-only)
-endif()
-if (NOT TARGET fmt::fmt)
-  add_library(fmt::fmt INTERFACE IMPORTED)
-  target_include_directories(fmt::fmt INTERFACE "/usr/include" "/usr/local/include")
-endif()
+# ========================
+# Product links
+# ========================
+target_link_libraries(drive_engine
+    PUBLIC
+        drive::watcher
+        drive::adapter
+)
 
-# ===== Vix (core-only) — prefer new lowercase package, keep legacy fallback =====
-set(vix_FOUND FALSE)
-find_package(vix QUIET CONFIG)        # new
-if (vix_FOUND)
-  message(STATUS "Found vix (lowercase) package config")
+# ========================
+# Compiler options
+# ========================
+if(MSVC)
+    target_compile_options(drive_engine PRIVATE /W4 /permissive-)
+    if(DRIVE_WARNINGS_AS_ERRORS)
+        target_compile_options(drive_engine PRIVATE /WX)
+    endif()
 else()
-  find_package(Vix QUIET CONFIG)       # legacy
-  if (Vix_FOUND)
-    message(STATUS "Found Vix (legacy) package config")
-    set(vix_FOUND TRUE)
-  endif()
+    target_compile_options(drive_engine PRIVATE -Wall -Wextra -Wpedantic)
+    if(DRIVE_WARNINGS_AS_ERRORS)
+        target_compile_options(drive_engine PRIVATE -Werror)
+    endif()
 endif()
 
-if (NOT vix_FOUND)
-  message(FATAL_ERROR "Could not find Vix/vix package config. Set CMAKE_PREFIX_PATH to your install prefix.")
-endif()
-
-# Decide main target name (new vs legacy namespace)
-if (TARGET vix::vix)
-  set(VIX_MAIN_TARGET vix::vix)
-elseif (TARGET Vix::vix)
-  set(VIX_MAIN_TARGET Vix::vix)
-else()
-  message(FATAL_ERROR "Neither vix::vix nor Vix::vix target exists. Check your Vix/vix installation.")
-endif()
-
-# ===== App target =====
-set(SRC_FILES
-  src/main.cpp
-  src/handlers.cpp   
-)
-add_executable(os ${SRC_FILES})
-
-target_link_libraries(os PRIVATE
-  ${VIX_MAIN_TARGET}
-  Boost::system Boost::thread Boost::filesystem
-  Threads::Threads
+# ========================
+# Target properties
+# ========================
+set_target_properties(drive_engine PROPERTIES
+    OUTPUT_NAME drive_engine
+    VERSION ${PROJECT_VERSION}
+    SOVERSION 0
+    EXPORT_NAME engine
 )
 
-if (OpenSSL_FOUND)
-  target_link_libraries(os PRIVATE OpenSSL::SSL OpenSSL::Crypto)
-endif()
-
-if (UNIX AND NOT APPLE)
-  target_link_libraries(os PRIVATE dl)
-endif()
-
-# Warnings
-if (MSVC)
-  target_compile_options(os PRIVATE /W4 /permissive-)
-else()
-  target_compile_options(os PRIVATE -Wall -Wextra -Wpedantic)
-endif()
-
-# Sanitizers (optional)
-if (VIX_ENABLE_SANITIZERS AND NOT MSVC)
-  target_compile_options(os PRIVATE -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined)
-  target_link_options(os PRIVATE -fsanitize=address,undefined)
-endif()
-
-# Run helper
-add_custom_target(run
-  COMMAND $<TARGET_FILE:os>
-  DEPENDS os
-  USES_TERMINAL
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+# ========================
+# Install
+# ========================
+install(
+    TARGETS drive_engine
+    EXPORT driveEngineTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-set_target_properties(os PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-  INSTALL_RPATH_USE_LINK_PATH ON
+install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/"
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+
+install(
+    EXPORT driveEngineTargets
+    FILE driveEngineTargets.cmake
+    NAMESPACE drive::
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/drive_engine"
+)
+
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/drive_engineConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/drive_engineConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/drive_engineConfig.cmake"
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/drive_engine"
+)
+
+install(
+    FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/drive_engineConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/drive_engineConfigVersion.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/drive_engine"
+)
+
+# ========================
+# Tests
+# ========================
+if(DRIVE_ENGINE_BUILD_TESTS)
+    include(CTest)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt")
+        add_subdirectory(tests)
+    endif()
+endif()
+
+# ========================
+# Summary
+# ========================
+message(STATUS "------------------------------------------------------")
+message(STATUS "drive::engine configured (${PROJECT_VERSION})")
+message(STATUS "Include dir:      ${CMAKE_CURRENT_SOURCE_DIR}/include")
+message(STATUS "Build tests:      ${DRIVE_ENGINE_BUILD_TESTS}")
+message(STATUS "Warnings=error:   ${DRIVE_WARNINGS_AS_ERRORS}")
+message(STATUS "Build type:       ${CMAKE_BUILD_TYPE}")
+message(STATUS "Install prefix:   ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "------------------------------------------------------")
